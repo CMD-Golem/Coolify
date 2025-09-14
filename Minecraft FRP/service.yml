@@ -5,16 +5,51 @@
 # port: 25565, 7000
 
 services:
-  minecraft_frps:
-    image: ghcr.io/fatedier/frps:v0.62.1
-    container_name: minecraft_frps
+  frps:
+    image: 'ghcr.io/fatedier/frps:v0.64.0'
     restart: unless-stopped
     ports:
       - 7000:7000
-      - 25565:25565
-    volumes:
-      - ./frps.toml:/frps.toml
     command:
       - '-c'
       - /frps.toml
+    networks:
+      - minecraft_network
+    volumes:
+      -
+        type: bind
+        source: ./frps.toml
+        target: /frps.toml
+        content: "bindPort = 7000\nauth.token = \"\""
+
+
+  infrared:
+    image: 'ghcr.io/haveachin/infrared:latest'
+    restart: unless-stopped
+    ports:
+      - '25565:25565'
+    networks:
+      - minecraft_network
+    depends_on:
+      - frps
+    volumes:
+      -
+        type: bind
+        source: ./proxies/proxy1.yml
+        target: /proxies/proxy1.yml
+        content: "domains:\n  - \"example.com\"\naddresses:\n  - frps:25565"
+      -
+        type: bind
+        source: ./infrared.yml
+        target: /infrared.yml
+        content: "bind: 0.0.0.0:25565\nkeepAliveTimeout: 30s"
+    command:
+      - '-c'
+      - /infrared.yml
+      - '-p'
+      - /proxies
+
+networks:
+  minecraft_network:
+    driver: bridge
 
